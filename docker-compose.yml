@@ -1,75 +1,66 @@
 services:
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: tablelink_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/app
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - app
+    networks:
+      - tablelink-network
+
   # Laravel Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        user: www
-        uid: 1000
-    container_name: tablelink-app
-    restart: unless-stopped
-    working_dir: /var/www
+    container_name: tablelink_app
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_KEY=${APP_KEY}
+      - DB_CONNECTION=${DB_CONNECTION:-mysql}
+      - DB_HOST=${DB_HOST:-mysql}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_DATABASE=${DB_DATABASE:-tablelink}
+      - DB_USERNAME=${DB_USERNAME:-tablelink}
+      - DB_PASSWORD=${DB_PASSWORD}
     volumes:
-      - ./:/var/www
-      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - ./:/app
+      - /app/node_modules
+    depends_on:
+      - mysql
     networks:
       - tablelink-network
-    depends_on:
-      - db
-
-  # Nginx Web Server
-  nginx:
-    image: nginx:alpine
-    container_name: tablelink-nginx
-    restart: unless-stopped
-    ports:
-      - "8080:80"
-    volumes:
-      - ./:/var/www
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d
-    networks:
-      - tablelink-network
-    depends_on:
-      - app
 
   # MySQL Database
-  db:
+  mysql:
     image: mysql:8.0
-    container_name: tablelink-db
-    restart: unless-stopped
+    container_name: tablelink_mysql
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-tablelink_interview}
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_DATABASE: ${DB_DATABASE:-tablelink}
       MYSQL_USER: ${DB_USERNAME:-tablelink}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
-      - tablelink-db-data:/var/lib/mysql
-      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - mysql-data:/var/lib/mysql
     networks:
       - tablelink-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
-  # Node.js for Vite (development)
-  node:
-    image: node:20-alpine
-    container_name: tablelink-node
-    working_dir: /var/www
-    volumes:
-      - ./:/var/www
-    ports:
-      - "5173:5173"
-    networks:
-      - tablelink-network
-    command: sh -c "npm install && npm run dev -- --host"
-    profiles:
-      - dev
+volumes:
+  mysql-data:
 
 networks:
   tablelink-network:
     driver: bridge
-
-volumes:
-  tablelink-db-data:
-    driver: local
