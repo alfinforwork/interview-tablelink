@@ -20,6 +20,8 @@ Open your browser to: **http://localhost**
 
 ### 3. Login with Dummy Users
 
+<b>*you need to do seed first</b>
+
 | Email | Password | Role |
 |-------|----------|------|
 | alfinforwork@gmail.com | 12345678 | Admin |
